@@ -30,7 +30,7 @@ html,body{margin:0;background:#F6F2E9;}
 <script>
 /* Capa de sincronización con Google Sheets (vía Apps Script) + caché offline. */
 var Sync = (function(){
-  var LS = {key:'agt_key', url:'agt_url', state:'agt_state', base:'agt_base'};
+  var LS = {key:'agt_key', user:'agt_user', me:'agt_me', url:'agt_url', state:'agt_state', base:'agt_base'};
   function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
   function lsSet(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
   function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
@@ -45,8 +45,11 @@ var Sync = (function(){
     var u = lsGet(LS.url) || cfg.apiUrl || '';
     return /^https:\/\/script\.google\.com\//.test(u) ? u : '';
   }
+  function norm(x){ return String(x||'').trim().toLowerCase(); }
   function getKey(){ return lsGet(LS.key) || ''; }
-  function configured(){ return !!apiUrl() && !!getKey(); }
+  function getUser(){ return lsGet(LS.user) || ''; }
+  function configured(){ return !!apiUrl() && !!getKey() && !!getUser(); }
+  function me(){ try { return JSON.parse(lsGet(LS.me) || 'null') || {rol:'vendedor', vendedor:'', usuario:getUser()}; } catch(e){ return {rol:'vendedor', vendedor:'', usuario:getUser()}; } }
 
   function sig(d){
     var c = {}; Object.keys(d).sort().forEach(function(k){ if (k !== 'updatedAt') c[k] = d[k]; });
@@ -81,19 +84,20 @@ var Sync = (function(){
     var url = apiUrl();
     var p;
     if (payload) {
-      payload.key = getKey();
+      payload.clave = getKey(); payload.usuario = getUser();
       p = fetch(url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload)});
     } else {
-      p = fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'key=' + encodeURIComponent(getKey()) + '&t=' + Date.now());
+      p = fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'usuario=' + encodeURIComponent(getUser()) + '&clave=' + encodeURIComponent(getKey()) + '&t=' + Date.now());
     }
     return p.then(function(r){ return r.json(); }).then(function(j){
       if (!j || !j.ok) { var e = new Error((j && j.error) || 'error'); e.auth = (j && j.error === 'clave'); throw e; }
+      if (j.user) lsSet(LS.me, JSON.stringify(j.user));
       return j.deals;
     });
   }
 
   function errText(e){
-    if (e && e.auth) return 'Clave incorrecta';
+    if (e && e.auth) return 'Usuario o clave incorrectos';
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'Sin conexión';
     return 'No se pudo sincronizar';
   }
@@ -141,8 +145,9 @@ var Sync = (function(){
 
   return {
     configured: configured, apiUrl: apiUrl, getKey: getKey,
-    setCredentials: function(url, key){ if (url) lsSet(LS.url, url); lsSet(LS.key, key); },
-    logout: function(){ lsDel(LS.key); lsDel(LS.state); lsDel(LS.base); },
+    setCredentials: function(url, user, key){ if (url) lsSet(LS.url, url); if (norm(getUser()) !== norm(user)) { lsDel(LS.state); lsDel(LS.base); lsDel(LS.me); } lsSet(LS.user, user); lsSet(LS.key, key); },
+    logout: function(){ lsDel(LS.key); lsDel(LS.user); lsDel(LS.me); lsDel(LS.state); lsDel(LS.base); },
+    me: me,
     onStatus: function(fn){ onStatus = fn; },
     status: function(){ return status; },
     cached: loadCache, loadBase: loadBase, cacheState: cacheState,
@@ -229,6 +234,7 @@ function appMain(){
     + ".sync-chip.ok{color:var(--st-approved-fg);background:var(--st-approved-bg);border-color:transparent;}"
     + ".sync-chip.warn{color:var(--st-progress-fg);background:var(--st-progress-bg);border-color:transparent;}"
     + ".sync-chip.busy{opacity:.7;}"
+    + ".sync-user{font-size:12.5px;color:var(--text-muted);}"
     + ".sync-out{font:inherit;font-size:12.5px;background:none;border:none;color:var(--text-faint);text-decoration:underline;cursor:pointer;padding:5px 4px;}"
     + "@media (max-width:640px){body{overflow-x:hidden;}}"
     + ".header .sub{color:var(--text-muted);margin-top:4px;font-size:14px;}"
@@ -384,6 +390,8 @@ function appMain(){
   var artifactNs = null;
   var downloadsNs = null;
   var writable = true;
+  function isAdmin(){ return Sync.me().rol === 'admin'; }
+  function meName(){ return Sync.me().vendedor || ''; }
   var toastTimer = null;
   var toastMsg = null;
 
@@ -465,7 +473,7 @@ function appMain(){
           '<h1>Seguimiento de negocios</h1>' +
           '<div class="sub">Control de unidades cotizadas, financiación y documentación por vendedor.</div>' +
           '<div class="sync-row"><button type="button" id="sync-chip" class="sync-chip ' + esc(Sync.status().cls || '') + '" data-action="sync-now">' + esc(Sync.status().text || 'Sincronizar') + '</button>' +
-          '<button type="button" class="sync-out" data-action="logout">Salir</button></div>' +
+          '<span class="sync-user">' + esc(Sync.me().usuario || '') + (isAdmin() ? ' · Administrador' : '') + '</span><button type="button" class="sync-out" data-action="logout">Salir</button></div>' +
         '</div>' +
         '<div class="stats">' +
           '<div class="stat"><div class="n num">' + s.total + '</div><div class="l">Total</div></div>' +
@@ -501,13 +509,13 @@ function appMain(){
     return '' +
       '<div class="toolbar">' +
         '<input type="text" id="f-search" placeholder="Buscar cliente, unidad o vendedor…" value="' + esc(ui.search) + '">' +
-        '<select id="f-vendedor">' + vOpts + '</select>' +
+        (isAdmin() ? '<select id="f-vendedor">' + vOpts + '</select>' : '') +
         '<select id="f-estado">' + eOpts + '</select>' +
         '<select id="f-condicion">' + cOpts + '</select>' +
         '<div class="spacer"></div>' +
         '<button class="btn btn-ghost btn-sm" data-action="report">Informes</button>' +
         '<button class="btn btn-ghost btn-sm" data-action="export">Exportar</button>' +
-        '<button class="btn btn-ghost btn-sm" data-action="import">Importar</button>' +
+        (isAdmin() ? '<button class="btn btn-ghost btn-sm" data-action="import">Importar</button>' : '') +
         '<button class="btn btn-ghost btn-sm" data-action="sheet-import">Cargar planilla</button>' +
         '<button class="btn btn-primary" data-action="new">+ Nuevo negocio</button>' +
       '</div>';
@@ -963,7 +971,7 @@ function appMain(){
   function renderModal(){
     var editing = ui.modal === 'edit';
     var d = editing ? byId(ui.editId) : null;
-    d = d || {fecha: todayStr(), vendedor:'', cliente:'', unidad:'', tipoUnidad:'', condicionUnidad:'', nis:'', precio:'', moneda:'USD',
+    d = d || {fecha: todayStr(), vendedor: meName(), cliente:'', unidad:'', tipoUnidad:'', condicionUnidad:'', nis:'', precio:'', moneda:'USD',
       financiacion:'', condicionesItems:[],
       tradeInModelo:'', tradeInValor:'', pagoContado:'', pagoCreditoBanco:'', pagoFinancPropia1er:'', pagoFinancPropiaResto:'', origen:'',
       boletoNumero:'', boletoFecha:'', estado:'en_analisis', notas:''};
@@ -977,7 +985,7 @@ function appMain(){
           '<form id="deal-form" data-action="save-deal">' +
             '<div class="form-grid">' +
               '<div><label>Fecha</label><input type="date" name="fecha" value="' + esc(d.fecha) + '" required></div>' +
-              '<div><label>Vendedor</label><input type="text" name="vendedor" value="' + esc(d.vendedor) + '" required></div>' +
+              '<div><label>Vendedor</label><input type="text" name="vendedor" value="' + esc(isAdmin() ? d.vendedor : meName()) + '" required' + (isAdmin() ? '' : ' readonly') + '></div>' +
               '<div class="full"><label>Cliente</label><input type="text" name="cliente" value="' + esc(d.cliente) + '" required></div>' +
               '<div class="full"><label>Unidad cotizada</label><input type="text" name="unidad" value="' + esc(d.unidad) + '" placeholder="Ej: Cosechadora XYZ 2023" required></div>' +
               '<div><label>Tipo de unidad</label><select name="tipoUnidad">' +
@@ -1658,9 +1666,10 @@ function appMain(){
     appEl.innerHTML =
       '<form class="agt-login" id="agt-form">' +
         '<h1>Negocios · Agroterra</h1>' +
-        '<p>Ingresá la clave del equipo para conectar con la planilla.</p>' +
+        '<p>Ingresá tu usuario y tu clave.</p>' +
         (needUrl ? '<label>Dirección del script (URL de Apps Script)</label><input id="agt-url" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(Sync.apiUrl()) + '">' : '') +
-        '<label>Clave del equipo</label><input id="agt-key" type="password" autocomplete="current-password">' +
+        '<label>Usuario</label><input id="agt-user" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" value="' + esc(localStorage.getItem('agt_user') || '') + '">' +
+        '<label>Clave</label><input id="agt-key" type="password" autocomplete="current-password">' +
         '<button type="submit">Entrar</button>' +
         '<div class="err" id="agt-err">' + esc(msg || '') + '</div>' +
       '</form>';
@@ -1670,12 +1679,13 @@ function appMain(){
       var urlEl = document.getElementById('agt-url');
       var url = urlEl ? urlEl.value.trim() : '';
       var err = document.getElementById('agt-err');
-      if (!key) { err.textContent = 'Ingresá la clave.'; return; }
-      Sync.setCredentials(url, key);
+      var usr = document.getElementById('agt-user').value.trim();
+      if (!usr || !key) { err.textContent = 'Ingresá usuario y clave.'; return; }
+      Sync.setCredentials(url, usr, key);
       if (!Sync.apiUrl()) { err.textContent = 'Falta la dirección del script.'; return; }
       err.textContent = 'Conectando…';
       Sync.initialFetch().then(function(list){ start(list); }).catch(function(e){
-        err.textContent = (e && e.auth) ? 'Clave incorrecta.' : 'No se pudo conectar con la planilla. Revisá la conexión y la dirección del script.';
+        err.textContent = (e && e.auth) ? 'Usuario o clave incorrectos.' : 'No se pudo conectar con la planilla. Revisá la conexión y la dirección del script.';
       });
     });
   }
@@ -1687,7 +1697,7 @@ function appMain(){
     var hasBase = false; try { hasBase = Object.keys(JSON.parse(localStorage.getItem('agt_base') || '{}')).length > 0 || (cache && cache.length === 0); } catch(e){}
     if (cache && hasBase) { start(cache); return; }
     Sync.initialFetch().then(start).catch(function(e){
-      if (e && e.auth) showLogin('Clave incorrecta.');
+      if (e && e.auth) showLogin('Usuario o clave incorrectos.');
       else appEl.innerHTML = '<p style="font-family:system-ui;padding:2rem;color:#6E6656;">Sin conexión y sin datos guardados en este celular. Conectate a internet y volvé a abrir la app.</p>';
     });
   }
