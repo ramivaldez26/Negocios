@@ -239,6 +239,29 @@ function appMain(){
     + "@media (max-width:640px){body{overflow-x:hidden;}}"
     + ".header .sub{color:var(--text-muted);margin-top:4px;font-size:14px;}"
     + ".stats{display:flex;gap:10px;flex-wrap:wrap;}"
+    + ".date-filter{margin-top:-6px;font-size:13px;color:var(--text-muted);}"
+    + ".date-filter .df-label{font-weight:600;}"
+    + ".df-inline{display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:400;font-size:13px;}"
+    + ".df-inline input{width:auto;padding:7px 9px;}"
+    + ".field-hint{font-size:11.5px;color:var(--text-faint);margin-top:4px;}"
+    + ".stats{gap:14px;}"
+    + ".fase-group{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px 12px;box-shadow:var(--shadow);min-width:0;}"
+    + ".fase-group.active{border-color:var(--accent);}"
+    + ".fase-head{all:unset;cursor:pointer;display:flex;align-items:baseline;gap:8px;margin-bottom:8px;}"
+    + ".fase-head:focus-visible,.sub-stat:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px;}"
+    + ".fase-head .n{font-size:26px;font-weight:600;line-height:1;} .fase-head .l{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:600;}"
+    + ".fase-group.abierto .fase-head .n{color:var(--st-progress-fg);} .fase-group.cerrado .fase-head .n{color:var(--text);}"
+    + ".fase-subs{display:flex;gap:6px;flex-wrap:wrap;}"
+    + ".sub-stat{all:unset;cursor:pointer;display:flex;flex-direction:column;min-width:78px;padding:6px 10px;border-radius:8px;border:1px solid transparent;box-sizing:border-box;}"
+    + ".sub-stat .n{font-size:17px;font-weight:600;} .sub-stat .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;opacity:.85;}"
+    + ".sub-stat.analysis{background:var(--st-analysis-bg);color:var(--st-analysis-fg);} .sub-stat.progress{background:var(--st-progress-bg);color:var(--st-progress-fg);}"
+    + ".sub-stat.pending{background:var(--st-pending-bg);color:var(--st-pending-fg);} .sub-stat.approved{background:var(--st-approved-bg);color:var(--st-approved-fg);}"
+    + ".sub-stat.won{background:var(--st-won-bg);color:var(--st-won-fg);} .sub-stat.lost{background:var(--st-lost-bg);color:var(--st-lost-fg);}"
+    + ".sub-stat.rejected{background:var(--st-rejected-bg);color:var(--st-rejected-fg);} .sub-stat.postponed{background:var(--st-postponed-bg);color:var(--st-postponed-fg);}"
+    + ".sub-stat.on{border-color:currentColor;box-shadow:inset 0 0 0 1px currentColor;}"
+    + ".fase-line{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;color:var(--text-muted);display:flex;align-items:center;gap:5px;}"
+    + ".fase-line:before{content:'';width:7px;height:7px;border-radius:50%;background:var(--st-progress-fg);}"
+    + ".fase-line.cerrado:before{background:var(--text-faint);}"
     + ".stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:104px;box-shadow:var(--shadow);}"
     + ".stat .n{font-size:20px;font-weight:600;}"
     + ".stat .l{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-top:2px;}"
@@ -345,24 +368,46 @@ function appMain(){
     + ".modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}"
     + ".toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);"
     + "  padding:10px 18px;border-radius:8px;font-size:13.5px;box-shadow:var(--shadow);z-index:60;}"
+    + "@media (min-width:641px){.toolbar select{width:auto;} .toolbar input[type=text]{width:auto;min-width:260px;}}"
     + "@media (max-width:640px){.form-grid,.used-fields{grid-template-columns:1fr;} .detail-grid{grid-template-columns:1fr 1fr;}}";
 
   /* ---------- constants ---------- */
   var STATUS = {
-    en_analisis:    {label:'En análisis',     cls:'analysis'},
-    en_negociacion: {label:'En negociación', cls:'progress'},
-    doc_pendiente:  {label:'Doc. pendiente',  cls:'pending'},
-    aprobado:       {label:'Aprobado',        cls:'approved'},
-    rechazado:      {label:'Rechazado',       cls:'rejected'},
-    postergado:     {label:'Desistido',       cls:'postponed'},
-    cerrado_ganado: {label:'Cerrado – ganado', cls:'won'},
-    cerrado_perdido:{label:'Cerrado – perdido',cls:'lost'}
+    en_analisis:    {label:'En análisis',      short:'En análisis',    cls:'analysis',  fase:'abierto'},
+    en_negociacion: {label:'En negociación',  short:'En negociación', cls:'progress',  fase:'abierto'},
+    doc_pendiente:  {label:'Doc. pendiente',   short:'Doc. pendiente', cls:'pending',   fase:'abierto'},
+    aprobado:       {label:'Aprobado',         short:'Aprobado',       cls:'approved',  fase:'abierto'},
+    cerrado_ganado: {label:'Cerrado – ganado', short:'Ganado',         cls:'won',       fase:'cerrado'},
+    cerrado_perdido:{label:'Cerrado – perdido',short:'Perdido',        cls:'lost',      fase:'cerrado'},
+    rechazado:      {label:'Rechazado',        short:'Rechazado',      cls:'rejected',  fase:'cerrado'},
+    postergado:     {label:'Desistido',        short:'Desistido',      cls:'postponed', fase:'cerrado'}
   };
+  var FASES = {abierto:'Abierto', cerrado:'Cerrado'};
+  var STATUS_ORDER = Object.keys(STATUS);
+  function faseOf(estado){ return (STATUS[estado] || {}).fase || 'abierto'; }
+  function estadoRank(estado){
+    var i = STATUS_ORDER.indexOf(estado); if (i < 0) i = 99;
+    return (faseOf(estado) === 'abierto' ? 0 : 100) + i;
+  }
+  function estadoOptions(selected, allLabel){
+    var html = allLabel ? '<option value="">' + allLabel + '</option>' : '';
+    Object.keys(FASES).forEach(function(f){
+      html += '<optgroup label="' + FASES[f] + '">' + STATUS_ORDER.filter(function(k){ return STATUS[k].fase === f; }).map(function(k){
+        return '<option value="' + k + '"' + (selected === k ? ' selected' : '') + '>' + STATUS[k].short + '</option>';
+      }).join('') + '</optgroup>';
+    });
+    return html;
+  }
+  function estadoCell(estado){
+    var st = STATUS[estado] || {short:estado, cls:'progress', fase:'abierto'};
+    return '<div class="fase-line ' + st.fase + '">' + FASES[st.fase] + '</div><span class="chip ' + st.cls + '">' + esc(st.short) + '</span>';
+  }
   var HIST_TYPES = {
     contacto_contador: 'Contacto a contador',
     contacto_cliente:  'Contacto a cliente',
     nota:               'Nota',
-    cambio_estado:      'Cambio de estado'
+    cambio_estado:      'Cambio de estado',
+    fecha_cierre:       'Fecha de cierre'
   };
   var TIPO_UNIDAD = {
     tractor:        'Tractor',
@@ -385,8 +430,8 @@ function appMain(){
 
   /* ---------- state ---------- */
   var state = (window.__STATE__ && Array.isArray(window.__STATE__.deals)) ? window.__STATE__ : {deals:[]};
-  var ui = {sortKey:'fecha', sortDir:'desc', search:'', vendedor:'', estado:'', condicion:'', openId:null, modal:null, editId:null, sheetImport:null, editHist:null};
-  var reportFilters = {desde:'', hasta:'', anios:[], meses:[], cliente:'', vendedores:[], tipos:[], estados:[], condicion:''};
+  var ui = {sortKey:'fecha', sortDir:'desc', search:'', vendedor:'', fase:'', estado:'', condicion:'', openId:null, modal:null, editId:null, sheetImport:null, editHist:null, fechaCampo:'fecha', desde:'', hasta:''};
+  var reportFilters = {campo:'fecha', desde:'', hasta:'', anios:[], meses:[], cliente:'', vendedores:[], tipos:[], estados:[], condicion:''};
   var artifactNs = null;
   var downloadsNs = null;
   var writable = true;
@@ -464,6 +509,20 @@ function appMain(){
     return s;
   }
 
+  function renderFaseGroup(fase, s){
+    var keys = STATUS_ORDER.filter(function(k){ return STATUS[k].fase === fase; });
+    var total = keys.reduce(function(acc, k){ return acc + (s[k] || 0); }, 0);
+    var activeF = ui.fase === fase;
+    return '<div class="fase-group ' + fase + (activeF ? ' active' : '') + '">' +
+      '<button type="button" class="fase-head" data-action="filter-fase" data-fase="' + fase + '" aria-pressed="' + activeF + '">' +
+        '<span class="n num">' + total + '</span><span class="l">' + (fase === 'abierto' ? 'Abiertos' : 'Cerrados') + '</span></button>' +
+      '<div class="fase-subs">' + keys.map(function(k){
+        var on = ui.estado === k;
+        return '<button type="button" class="sub-stat ' + STATUS[k].cls + (on ? ' on' : '') + '" data-action="filter-estado" data-key="' + k + '" aria-pressed="' + on + '">' +
+          '<span class="n num">' + (s[k] || 0) + '</span><span class="l">' + esc(STATUS[k].short) + '</span></button>';
+      }).join('') + '</div></div>';
+  }
+
   function renderHeader(){
     var s = computeStats();
     return '' +
@@ -475,17 +534,7 @@ function appMain(){
           '<div class="sync-row"><button type="button" id="sync-chip" class="sync-chip ' + esc(Sync.status().cls || '') + '" data-action="sync-now">' + esc(Sync.status().text || 'Sincronizar') + '</button>' +
           '<span class="sync-user">' + esc(Sync.me().usuario || '') + (isAdmin() ? ' · Administrador' : '') + '</span><button type="button" class="sync-out" data-action="logout">Salir</button></div>' +
         '</div>' +
-        '<div class="stats">' +
-          '<div class="stat"><div class="n num">' + s.total + '</div><div class="l">Total</div></div>' +
-          '<div class="stat analysis"><div class="n num">' + s.en_analisis + '</div><div class="l">En análisis</div></div>' +
-          '<div class="stat progress"><div class="n num">' + s.en_negociacion + '</div><div class="l">En negociación</div></div>' +
-          '<div class="stat pending"><div class="n num">' + s.doc_pendiente + '</div><div class="l">Doc. pendiente</div></div>' +
-          '<div class="stat approved"><div class="n num">' + s.aprobado + '</div><div class="l">Aprobados</div></div>' +
-          '<div class="stat rejected"><div class="n num">' + s.rechazado + '</div><div class="l">Rechazados</div></div>' +
-          '<div class="stat postponed"><div class="n num">' + s.postergado + '</div><div class="l">Desistidos</div></div>' +
-          '<div class="stat won"><div class="n num">' + s.cerrado_ganado + '</div><div class="l">Ganados</div></div>' +
-          '<div class="stat lost"><div class="n num">' + s.cerrado_perdido + '</div><div class="l">Perdidos</div></div>' +
-        '</div>' +
+        '<div class="stats">' + renderFaseGroup('abierto', s) + renderFaseGroup('cerrado', s) + '</div>' +
       '</div>';
   }
 
@@ -500,9 +549,8 @@ function appMain(){
     var vOpts = '<option value="">Todos los vendedores</option>' + vendedores.map(function(v){
       return '<option value="' + esc(v) + '"' + (ui.vendedor === v ? ' selected' : '') + '>' + esc(v) + '</option>';
     }).join('');
-    var eOpts = '<option value="">Todos los estados</option>' + Object.keys(STATUS).map(function(k){
-      return '<option value="' + k + '"' + (ui.estado === k ? ' selected' : '') + '>' + STATUS[k].label + '</option>';
-    }).join('');
+    var eOpts = estadoOptions(ui.estado, 'Todos los estados');
+    var fOpts = '<option value=""' + (ui.fase === '' ? ' selected' : '') + '>Abiertos y cerrados</option><option value="abierto"' + (ui.fase === 'abierto' ? ' selected' : '') + '>Solo abiertos</option><option value="cerrado"' + (ui.fase === 'cerrado' ? ' selected' : '') + '>Solo cerrados</option>';
     var cOpts = '<option value="">Nuevo y usado</option>' + Object.keys(CONDICION_UNIDAD).map(function(k){
       return '<option value="' + k + '"' + (ui.condicion === k ? ' selected' : '') + '>' + CONDICION_UNIDAD[k] + '</option>';
     }).join('');
@@ -510,6 +558,7 @@ function appMain(){
       '<div class="toolbar">' +
         '<input type="text" id="f-search" placeholder="Buscar cliente, unidad o vendedor…" value="' + esc(ui.search) + '">' +
         (isAdmin() ? '<select id="f-vendedor">' + vOpts + '</select>' : '') +
+        '<select id="f-fase">' + fOpts + '</select>' +
         '<select id="f-estado">' + eOpts + '</select>' +
         '<select id="f-condicion">' + cOpts + '</select>' +
         '<div class="spacer"></div>' +
@@ -518,6 +567,13 @@ function appMain(){
         (isAdmin() ? '<button class="btn btn-ghost btn-sm" data-action="import">Importar</button>' : '') +
         '<button class="btn btn-ghost btn-sm" data-action="sheet-import">Cargar planilla</button>' +
         '<button class="btn btn-primary" data-action="new">+ Nuevo negocio</button>' +
+      '</div>' +
+      '<div class="toolbar date-filter">' +
+        '<span class="df-label">Filtrar por fecha de</span>' +
+        '<select id="f-fcampo">' + [['fecha','carga'],['boletoFecha','boleto'],['fechaCierre','cierre']].map(function(o){ return '<option value="' + o[0] + '"' + (ui.fechaCampo === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<label class="df-inline">desde <input type="date" id="f-desde" value="' + esc(ui.desde) + '"></label>' +
+        '<label class="df-inline">hasta <input type="date" id="f-hasta" value="' + esc(ui.hasta) + '"></label>' +
+        ((ui.desde || ui.hasta) ? '<button type="button" class="btn btn-ghost btn-sm" data-action="clear-dates">Quitar fechas</button>' : '') +
       '</div>';
   }
 
@@ -525,7 +581,15 @@ function appMain(){
     var q = ui.search.trim().toLowerCase();
     return state.deals.filter(function(d){
       if (ui.vendedor && d.vendedor !== ui.vendedor) return false;
+      if (ui.fase && faseOf(d.estado) !== ui.fase) return false;
       if (ui.estado && d.estado !== ui.estado) return false;
+      if (ui.desde || ui.hasta) {
+        var fv = d[ui.fechaCampo] || '';
+        if (ui.fechaCampo === 'fechaCierre' && d.estado !== 'cerrado_ganado') fv = '';
+        if (!fv) return false;
+        if (ui.desde && fv < ui.desde) return false;
+        if (ui.hasta && fv > ui.hasta) return false;
+      }
       if (ui.condicion && d.condicionUnidad !== ui.condicion) return false;
       if (q) {
         var hay = ((d.cliente||'') + ' ' + (d.unidad||'') + ' ' + (d.vendedor||'')).toLowerCase();
@@ -537,7 +601,7 @@ function appMain(){
 
   function sortValue(d, key){
     if (key === 'precio') { var n = Number(d.precio); return isNaN(n) ? -Infinity : n; }
-    if (key === 'estado') return ((STATUS[d.estado] || {}).label || d.estado || '').toLowerCase();
+    if (key === 'estado') return estadoRank(d.estado);
     return String(d[key] || '').toLowerCase();
   }
   function compareDeals(a, b){
@@ -569,8 +633,11 @@ function appMain(){
 
   function reportFilteredDeals(){
     return state.deals.filter(function(d){
-      if (reportFilters.desde && (d.fecha || '') < reportFilters.desde) return false;
-      if (reportFilters.hasta && (d.fecha || '') > reportFilters.hasta) return false;
+      var rf = d[reportFilters.campo] || '';
+      if (reportFilters.campo === 'fechaCierre' && d.estado !== 'cerrado_ganado') rf = '';
+      if ((reportFilters.desde || reportFilters.hasta) && !rf) return false;
+      if (reportFilters.desde && rf < reportFilters.desde) return false;
+      if (reportFilters.hasta && rf > reportFilters.hasta) return false;
       if (reportFilters.anios.length && reportFilters.anios.indexOf((d.fecha || '').slice(0,4)) === -1) return false;
       if (reportFilters.meses.length && reportFilters.meses.indexOf(mesKey(d.fecha)) === -1) return false;
       if (reportFilters.vendedores.length && reportFilters.vendedores.indexOf(d.vendedor) === -1) return false;
@@ -830,6 +897,7 @@ function appMain(){
           '<h2>Informes</h2>' +
           '<p style="color:var(--text-muted);font-size:13.5px;margin:0 0 14px;">Elegí los filtros y descargá un archivo con los negocios que coincidan, con el mismo formato que la planilla de ventas (una fila por negocio y una fila de totales al pie). En los listados con más de una opción podés tildar varias a la vez.</p>' +
           '<div class="form-grid">' +
+            '<div><label>Tipo de fecha</label><select id="rep-fcampo">' + [['fecha','Fecha de carga'],['boletoFecha','Fecha de boleto'],['fechaCierre','Fecha de cierre']].map(function(o){ return '<option value="' + o[0] + '"' + (reportFilters.campo === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
             '<div><label>Fecha desde</label><input type="date" id="rep-desde" value="' + esc(reportFilters.desde) + '"></div>' +
             '<div><label>Fecha hasta</label><input type="date" id="rep-hasta" value="' + esc(reportFilters.hasta) + '"></div>' +
             '<div><label>Condición</label><select id="rep-condicion">' + cOpts + '</select></div>' +
@@ -870,7 +938,7 @@ function appMain(){
           '<td>' + esc(d.vendedor) + '</td>' +
           '<td class="cell-cliente"><div class="name">' + esc(d.cliente) + '</div><div class="unit">' + (d.condicionUnidad && CONDICION_UNIDAD[d.condicionUnidad] ? esc(CONDICION_UNIDAD[d.condicionUnidad]) + ' — ' : '') + (d.tipoUnidad && TIPO_UNIDAD[d.tipoUnidad] ? esc(TIPO_UNIDAD[d.tipoUnidad]) + ' — ' : '') + esc(d.unidad) + (d.nis ? ' · NIS ' + esc(d.nis) : '') + '</div></td>' +
           '<td class="num">' + fmtMoney(d.precio, d.moneda) + '</td>' +
-          '<td><span class="chip ' + st.cls + '">' + esc(st.label) + '</span></td>' +
+          '<td>' + estadoCell(d.estado) + '</td>' +
         '</tr>';
       var detail = (ui.openId === d.id) ?
         ('<tr class="detail-row"><td colspan="5">' + renderDetail(d) + '</td></tr>') : '';
@@ -924,12 +992,13 @@ function appMain(){
     return '' +
       '<div class="detail">' +
         '<div class="detail-grid">' +
-          '<div><div class="f-label">Estado</div><div class="f-val"><span class="chip ' + st.cls + '">' + esc(st.label) + '</span></div></div>' +
+          '<div><div class="f-label">Estado</div><div class="f-val">' + estadoCell(d.estado) + '</div></div>' +
           '<div><div class="f-label">Condición</div><div class="f-val">' + esc(CONDICION_UNIDAD[d.condicionUnidad] || '—') + '</div></div>' +
           '<div><div class="f-label">Tipo de unidad</div><div class="f-val">' + esc(TIPO_UNIDAD[d.tipoUnidad] || '—') + '</div></div>' +
           '<div><div class="f-label">N° de NIS</div><div class="f-val num">' + (d.condicionUnidad === '0km' ? 'No aplica (Nuevo)' : esc(d.nis || '—')) + '</div></div>' +
           '<div><div class="f-label">N° de Boleto</div><div class="f-val num">' + esc(d.boletoNumero || '—') + '</div></div>' +
           '<div><div class="f-label">Fecha de boleto</div><div class="f-val num">' + esc(fmtDate(d.boletoFecha)) + '</div></div>' +
+          '<div><div class="f-label">Fecha de cierre</div><div class="f-val num">' + esc(d.estado === 'cerrado_ganado' ? fmtDate(d.fechaCierre) : '—') + '</div></div>' +
           '<div><div class="f-label">Método de financiación</div><div class="f-val">' + esc(d.financiacion || '—') + '</div></div>' +
           '<div><div class="f-label">Origen</div><div class="f-val">' + esc(d.origen || '—') + '</div></div>' +
           '<div><div class="f-label">Unidad tomada (ingreso)</div><div class="f-val">' + esc(d.tradeInModelo || '—') + '</div></div>' +
@@ -950,7 +1019,7 @@ function appMain(){
           histHtml +
           '<form class="hist-form" data-action="add-hist" data-id="' + d.id + '">' +
             '<select name="tipo">' +
-              Object.keys(HIST_TYPES).map(function(k){ return '<option value="' + k + '">' + HIST_TYPES[k] + '</option>'; }).join('') +
+              Object.keys(HIST_TYPES).filter(function(k){ return k !== 'fecha_cierre'; }).map(function(k){ return '<option value="' + k + '">' + HIST_TYPES[k] + '</option>'; }).join('') +
             '</select>' +
             '<input type="text" name="texto" placeholder="Detalle (ej: se solicitó DNI y CUIT al contador)" required>' +
             '<button class="btn btn-primary btn-sm" type="submit">Agregar</button>' +
@@ -999,15 +1068,14 @@ function appMain(){
               '<div id="nis-field-wrap" style="' + (d.condicionUnidad === '0km' ? 'display:none;' : '') + '"><label>N° de NIS</label><input type="text" name="nis" value="' + esc(d.nis) + '"></div>' +
               '<div><label>N° de Boleto</label><input type="text" name="boletoNumero" value="' + esc(d.boletoNumero) + '"></div>' +
               '<div><label>Fecha de boleto</label><input type="date" name="boletoFecha" value="' + esc(d.boletoFecha) + '"></div>' +
+              '<div><label>Fecha de cierre</label><input type="date" name="fechaCierre" value="' + esc(d.estado === 'cerrado_ganado' ? (d.fechaCierre || '') : '') + '"' + (d.estado === 'cerrado_ganado' ? '' : ' disabled') + '><div class="field-hint">Se completa sola al pasar a “Ganado”. Podés corregirla.</div></div>' +
               '<div><label>Precio de venta</label><div class="price-row">' +
                 '<select name="moneda">' +
                   '<option value="USD"' + (d.moneda==='USD'?' selected':'') + '>USD</option>' +
                   '<option value="ARS"' + (d.moneda==='ARS'?' selected':'') + '>ARS</option>' +
                 '</select>' +
                 '<input type="number" name="precio" min="0" step="1" value="' + esc(d.precio) + '" required></div></div>' +
-              '<div><label>Estado</label><select name="estado">' +
-                Object.keys(STATUS).map(function(k){ return '<option value="' + k + '"' + (d.estado===k?' selected':'') + '>' + STATUS[k].label + '</option>'; }).join('') +
-              '</select></div>' +
+              '<div><label>Estado</label><select name="estado">' + estadoOptions(d.estado, '') + '</select></div>' +
               '<div class="full"><label>Método de financiación</label><input type="text" name="financiacion" value="' + esc(d.financiacion) + '" placeholder="Ej: Financiación bancaria, plan canje, contado"></div>' +
               '<div class="full"><label>Origen</label><input type="text" name="origen" value="' + esc(d.origen) + '" placeholder="Ej: Concesionaria, referido, feria"></div>' +
               '<div class="full">' +
@@ -1397,9 +1465,11 @@ function appMain(){
       pagoFinancPropia1er: fd.get('pagoFinancPropia1er') === '' ? '' : Number(fd.get('pagoFinancPropia1er')),
       pagoFinancPropiaResto: fd.get('pagoFinancPropiaResto') === '' ? '' : Number(fd.get('pagoFinancPropiaResto')),
       estado: fd.get('estado') || 'en_analisis',
+      fechaCierre: '',
       notas: (fd.get('notas') || '').trim(),
       historial: []
     };
+    if (deal.estado === 'cerrado_ganado') { deal.fechaCierre = fd.get('fechaCierre') || todayStr(); }
     if (ui.editId) {
       var existing = byId(ui.editId);
       deal.historial = existing ? existing.historial : [];
@@ -1409,9 +1479,19 @@ function appMain(){
           texto: (STATUS[existing.estado] ? STATUS[existing.estado].label : existing.estado) + ' → ' + (STATUS[deal.estado] ? STATUS[deal.estado].label : deal.estado)
         }]);
       }
+      var oldCierre = existing ? (existing.fechaCierre || '') : '';
+      if (oldCierre !== deal.fechaCierre) {
+        deal.historial = deal.historial.concat([{
+          fecha: nowIso(), tipo: 'fecha_cierre',
+          texto: 'Fecha de cierre: ' + (oldCierre ? fmtDate(oldCierre) : '—') + ' → ' + (deal.fechaCierre ? fmtDate(deal.fechaCierre) : '—')
+        }]);
+      }
       var idx = state.deals.findIndex(function(x){ return x.id === ui.editId; });
       state.deals[idx] = deal;
     } else {
+      if (deal.fechaCierre) {
+        deal.historial = deal.historial.concat([{ fecha: nowIso(), tipo: 'fecha_cierre', texto: 'Fecha de cierre: — → ' + fmtDate(deal.fechaCierre) }]);
+      }
       state.deals.push(deal);
     }
     ui.modal = null; ui.editId = null;
@@ -1471,6 +1551,16 @@ function appMain(){
       else if (action === 'logout') {
         if (window.confirm('¿Salir de esta app en este celular? Los datos siguen guardados en la planilla.')) { Sync.logout(); location.reload(); }
       }
+      else if (action === 'clear-dates') { ui.desde = ''; ui.hasta = ''; render(); }
+      else if (action === 'filter-fase') {
+        var fz = t.getAttribute('data-fase');
+        ui.fase = (ui.fase === fz) ? '' : fz; ui.estado = ''; render();
+      }
+      else if (action === 'filter-estado') {
+        var ek = t.getAttribute('data-key');
+        if (ui.estado === ek) { ui.estado = ''; ui.fase = ''; } else { ui.estado = ek; ui.fase = faseOf(ek); }
+        render();
+      }
       else if (action === 'sort') {
         var k = t.getAttribute('data-key');
         if (ui.sortKey === k) { ui.sortDir = ui.sortDir === 'asc' ? 'desc' : 'asc'; }
@@ -1512,6 +1602,13 @@ function appMain(){
     });
 
     app.addEventListener('change', function(e){
+      if (e.target.name === 'estado' && e.target.closest('#deal-form')) {
+        var fc = document.querySelector('#deal-form [name="fechaCierre"]');
+        if (fc) {
+          if (e.target.value === 'cerrado_ganado') { fc.disabled = false; if (!fc.value) fc.value = todayStr(); }
+          else { fc.disabled = true; fc.value = ''; }
+        }
+      }
       if (e.target.name === 'condicionUnidad' && e.target.closest('#deal-form')) {
         var wrap = document.getElementById('nis-field-wrap');
         if (wrap) wrap.style.display = (e.target.value === '0km') ? 'none' : '';
@@ -1554,11 +1651,21 @@ function appMain(){
     if (search) search.addEventListener('input', function(e){ ui.search = e.target.value; render(); focusEl('f-search'); });
     var fv = document.getElementById('f-vendedor');
     if (fv) fv.addEventListener('change', function(e){ ui.vendedor = e.target.value; render(); });
+    var fcm = document.getElementById('f-fcampo');
+    if (fcm) fcm.addEventListener('change', function(e){ ui.fechaCampo = e.target.value; render(); });
+    var fds = document.getElementById('f-desde');
+    if (fds) fds.addEventListener('change', function(e){ ui.desde = e.target.value; render(); });
+    var fhs = document.getElementById('f-hasta');
+    if (fhs) fhs.addEventListener('change', function(e){ ui.hasta = e.target.value; render(); });
+    var ff = document.getElementById('f-fase');
+    if (ff) ff.addEventListener('change', function(e){ ui.fase = e.target.value; if (ui.estado && ui.fase && faseOf(ui.estado) !== ui.fase) ui.estado = ''; render(); });
     var fe = document.getElementById('f-estado');
-    if (fe) fe.addEventListener('change', function(e){ ui.estado = e.target.value; render(); });
+    if (fe) fe.addEventListener('change', function(e){ ui.estado = e.target.value; if (ui.estado) ui.fase = faseOf(ui.estado); render(); });
     var fc = document.getElementById('f-condicion');
     if (fc) fc.addEventListener('change', function(e){ ui.condicion = e.target.value; render(); });
 
+    var repCampo = document.getElementById('rep-fcampo');
+    if (repCampo) repCampo.addEventListener('change', function(e){ reportFilters.campo = e.target.value; render(); });
     var repDesde = document.getElementById('rep-desde');
     if (repDesde) repDesde.addEventListener('change', function(e){ reportFilters.desde = e.target.value; render(); });
     var repHasta = document.getElementById('rep-hasta');
@@ -1616,6 +1723,26 @@ function appMain(){
     }
   }
 
+  function migrateFechaCierre(){
+    var changed = false;
+    state.deals.forEach(function(d){
+      if (d.estado !== 'cerrado_ganado' || d.fechaCierre) return;
+      var found = '';
+      (d.historial || []).forEach(function(h){
+        if (h.tipo === 'cambio_estado' && /→\s*Cerrado – ganado\s*$/.test(h.texto || '')) {
+          var dt = new Date(h.fecha);
+          if (!isNaN(dt)) found = dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2) + '-' + ('0' + dt.getDate()).slice(-2);
+        }
+      });
+      if (found) {
+        d.fechaCierre = found;
+        d.historial = (d.historial || []).concat([{fecha: nowIso(), tipo: 'fecha_cierre', texto: 'Fecha de cierre registrada según el historial: ' + fmtDate(found)}]);
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
   function init(){
     injectHeadAssets();
     attachDelegatedHandlers();
@@ -1635,6 +1762,7 @@ function appMain(){
         });
       }
     };
+    if (isAdmin() && migrateFechaCierre()) { persist(); }
     Sync.onStatus(updateSyncChip);
     updateSyncChip();
     Sync.pull(syncApi);
